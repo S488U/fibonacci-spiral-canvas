@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fibinocci</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            padding: 0;
+            margin: 0;
+            overflow: hidden;
+
+            :focus {
+                outline: none;
+            }
+        }
+
+        body {
+            background-color: black;
+            position: relative;
+        }
+
+        canvas {
+            display: block;
+            touch-action: none;
+        }
+
+        #mainForm {
+            position: absolute;
+            padding: 10px;
+            width: max-content;
+            display: flex;
+            flex-direction: column;
+            align-items: start;
+            background-color: rgba(100, 100, 100, 0.8);
+            text-transform: capitalize;
+            font-family: monospace;
+            font-weight: 400;
+
+            div {
+                display: flex;
+            }
+
+            label {
+                font-size: 14px;
+            }
+
+            div:nth-child(1) {
+                flex-direction: column;
+
+                div {
+                    display: flex;
+                    flex-direction: row;
+                    justify-content: start;
+
+                    input[type="button"] {
+                        padding: 0 8px;
+                        font-weight: bold;
+                    }
+                }
+            }
+
+            div:nth-child(2),
+            div:nth-child(3),
+            div:nth-child(4) {
+                user-select: none;
+                flex-direction: row;
+                margin-top: 5px;
+                gap: 8px;
+                justify-content: space-between;
+
+                * {
+                    cursor: pointer;
+                }
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div id="mainForm">
+        <div>
+            <label>Enter custom Fibinocci Number: </label>
+            <div>
+                <input id="customFibValue" type="number" />
+                <input type="button" value="+" id="increase" />
+                <input type="button" value="-" id="decrease" />
+            </div>
+        </div>
+        <div>
+            <label for="squareBox">square box?</label>
+            <input id="squareBox" type="checkbox" checked />
+        </div>
+        <div>
+            <label for="numberBox">Number needed?</label>
+            <input id="numberBox" type="checkbox" checked />
+        </div>
+        <div>
+            <label for="spiralBox">Sprial shape?</label>
+            <input id="spiralBox" type="checkbox" checked />
+        </div>
+        <hr style="width: 100%; border-color: gray;">
+        <div>
+            ⚠️ Zoom out to see the full series
+        </div>
+    </div>
+
+    <canvas id="canvas">
+    </canvas>
+
+    <script>
+        const canvas = document.getElementById("canvas");
+        const ctx = canvas.getContext("2d");
+
+        // Fibinocci Generating function 
+        let memo = [];
+        const Fibinocci = (n) => {
+            if (memo[n]) return memo[n];
+            if (n <= 1) return BigInt(n);
+
+            memo[n] = Fibinocci(n - 1) + Fibinocci(n - 2);
+            return memo[n];
+        }
+
+        // Zoom
+        let zoom = 1;
+        let offsetX = 0;
+        let offsetY = 0;
+
+        const scale = 50;
+
+        // Default Fibinocci number
+        let FibinocciNumber = 5;
+
+        // DOM Element
+        const inputHandler = document.getElementById("customFibValue");
+        inputHandler.value = FibinocciNumber;
+
+        // Selective Draw variables
+        let showSquares = true;
+        let showNumbers = true;
+        let showSpiral = true;
+
+        // Helper Draw function
+        const drawSquareBox = (x, y, width, height) => {
+            ctx.strokeStyle = "yellow";
+            ctx.lineWidth = 1;
+            ctx.strokeRect(x, y, width, height)
+        }
+
+        const drawNumbers = (fibValue, centerX, centerY, size) => {
+            ctx.fillStyle = "blue";
+            ctx.font = `bold ${Math.min(size / 2, 40)}px Arial`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(fibValue, centerX, centerY);
+        }
+
+        const drawSprialLines = (x, y, radius, startAngle, endAngle, antiClockWise) => {
+            ctx.beginPath();
+            ctx.arc(x, y, radius, startAngle, endAngle, antiClockWise);
+            ctx.strokeStyle = "red";
+            ctx.lineWidth = 2;
+            ctx.stroke();
+        }
+
+        // Main Draw function
+        const drawFibinocci = () => {
+            const dpr = window.devicePixelRatio || 1;
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+            //clear screen
+            ctx.clearRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
+            ctx.fillStyle = "black"
+            ctx.fillRect(0, 0, canvas.offsetWidth, canvas.offsetHeight);
+
+            ctx.setTransform(dpr * zoom, 0, 0, dpr * zoom, offsetX * dpr, offsetY * dpr);
+
+            // reset everytime when the drawFibinocci() function calls
+            let fibValue = 1;
+            let valueSequence = [];
+            let size = fibValue * scale;
+
+            const rect = canvas.getBoundingClientRect();
+
+            let x = (rect.width / 2) - (size / 2);
+            let y = (rect.height / 2) - (size / 2);
+
+
+            let direction = 3;
+            let prevSize = 0;
+
+            for (let i = 1; i <= FibinocciNumber; i++) {
+                let printValue = Fibinocci(i).toString();
+                fibValue = Number(Fibinocci(i));
+                size = fibValue * scale;
+
+                let startAngle = 0;
+                let endAngle = 0;
+                let arcX = 0;
+                let arcY = 0;
+
+                if (i == 1) {
+                    prevSize = size;
+                    // logic for the first square box
+                    startAngle = Math.PI;
+                    endAngle = 1.5 * Math.PI;
+                    arcX = x + size;
+                    arcY = y + size;
+                } else {
+                    // Right
+                    if (direction === 0) {
+                        x += prevSize;
+
+                        startAngle = 1.5 * Math.PI;
+                        endAngle = 2 * Math.PI;
+
+                        arcX = x;
+                        arcY = y + size;
+                        // Down
+                    } else if (direction === 1) {
+                        x -= (size - prevSize);
+                        y += prevSize;
+
+                        startAngle = 0;
+                        endAngle = 0.5 * Math.PI;
+
+                        arcX = x;
+                        arcY = y;
+                        // Left 
+                    } else if (direction === 2) {
+                        x -= size;
+                        y -= (size - prevSize);
+
+                        startAngle = 0.5 * Math.PI;
+                        endAngle = Math.PI;
+
+                        arcX = x + size;
+                        arcY = y;
+                        // Up
+                    } else if (direction === 3) {
+                        y -= size;
+
+                        startAngle = Math.PI;
+                        endAngle = 1.5 * Math.PI;
+
+                        arcX = x + size;
+                        arcY = y + size;
+                    }
+
+                }
+
+                // Draw box by size
+                if (showSquares) {
+                    drawSquareBox(x, y, size, size);
+                }
+
+                const centerX = x + (size / 2);
+                const centerY = y + (size / 2);
+
+                // Fill numbers inside the center of each box by its size
+                if (showNumbers) {
+                    drawNumbers(fibValue, centerX, centerY, size);
+                }
+
+                // Draw curve inside the box to draw spiral shape.
+                const radius = size;
+                const antiClockWise = false;
+
+                if (showSpiral) {
+                    drawSprialLines(arcX, arcY, radius, startAngle, endAngle, antiClockWise);
+                }
+
+                direction = (direction + 1) % 4;
+                prevSize = size;
+
+                valueSequence.push(printValue);
+            }
+            console.log(valueSequence.length);
+        }
+
+        // If not checked square box will not shows 
+        document.getElementById("squareBox").addEventListener("change", (event) => {
+            showSquares = event.target.checked;
+            drawFibinocci();
+        })
+
+        // if not checked numbers will not shows
+        document.getElementById("numberBox").addEventListener("change", (event) => {
+            showNumbers = event.target.checked;
+            drawFibinocci();
+        })
+
+        // If not checked sprial lines will not show
+        document.getElementById("spiralBox").addEventListener("change", (event) => {
+            showSpiral = event.target.checked;
+            drawFibinocci();
+        })
+
+        inputHandler.addEventListener("input", (e) => {
+            const value = Number(document.getElementById("customFibValue").value);
+
+            if (value > 0) {
+                FibinocciNumber = value;
+            };
+
+            drawFibinocci();
+        })
+
+        // scroll canvas using mouse
+
+        canvas.addEventListener("wheel", (e) => {
+            e.preventDefault();
+
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            const zoomAmount = 0.1;
+            const zoomFactor = e.deltaY < 0 ? 1 + zoomAmount : 1 - zoomAmount;
+
+            const newZoom = Math.max(0.2, Math.min(zoom * zoomFactor, 5));
+
+            // Adjust offset so zoom focuses on mouse position
+            offsetX = mouseX - (mouseX - offsetX) * (newZoom / zoom);
+            offsetY = mouseY - (mouseY - offsetY) * (newZoom / zoom);
+
+            zoom = newZoom;
+
+            drawFibinocci();
+
+            setTimeout(() => {
+                if (!isDragging) {
+                    canvas.style.cursor = "grab";
+                }
+            }, 150);
+        })
+
+        // Pinch to scroll in mobile
+
+        let initialDistance = null;
+        let lastZoom = zoom;
+
+        const getDistance = (touches) => {
+            const dx = touches[0].clientX - touches[1].clientX;
+            const dy = touches[0].clientY - touches[1].clientY;
+            return Math.sqrt(dx * dx + dy * dy);
+        };
+
+        canvas.addEventListener("touchstart", (e) => {
+            if (e.touches.length === 2) {
+                initialDistance = getDistance(e.touches);
+                lastZoom = zoom;
+            }
+        });
+
+        canvas.addEventListener("touchmove", (e) => {
+            if (e.touches.length === 2) {
+                e.preventDefault();
+
+                const rect = canvas.getBoundingClientRect();
+
+                const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+                const midY = (e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top;
+
+                const currentDistance = getDistance(e.touches);
+                const scaleFactor = currentDistance / initialDistance;
+
+                const newZoom = Math.max(0.2, Math.min(lastZoom * scaleFactor, 5));
+
+                offsetX = midX - (midX - offsetX) * (newZoom / zoom);
+                offsetY = midY - (midY - offsetY) * (newZoom / zoom);
+
+                zoom = newZoom;
+
+                drawFibinocci();
+            }
+        });
+
+        // Pan in PC
+
+        let isDragging = false;
+        let startX, startY;
+
+        canvas.addEventListener("mousedown", (e) => {
+            isDragging = true;
+            canvas.style.cursor = "grabbing";
+
+            startX = e.clientX - offsetX;
+            startY = e.clientY - offsetY;
+        });
+
+
+        canvas.addEventListener("mousemove", (e) => {
+            if (isDragging) {
+                offsetX = e.clientX - startX;
+                offsetY = e.clientY - startY;
+                drawFibinocci();
+            }
+        });
+
+        // Pan in mobile
+
+        canvas.addEventListener("mouseup", () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener("touchstart", (e) => {
+            if (e.touches.length === 1) {
+                isDragging = true;
+                startX = e.touches[0].clientX - offsetX;
+                startY = e.touches[0].clientY - offsetY;
+            }
+        });
+
+        canvas.addEventListener("touchmove", (e) => {
+            if (e.touches.length === 1 && isDragging) {
+                offsetX = e.touches[0].clientX - startX;
+                offsetY = e.touches[0].clientY - startY;
+                drawFibinocci();
+            }
+        });
+
+        canvas.addEventListener("touchend", () => {
+            isDragging = false;
+        });
+
+        canvas.addEventListener("mouseup", () => {
+            isDragging = false;
+            canvas.style.cursor = "grab";
+        });
+
+        canvas.addEventListener("mouseleave", () => {
+            isDragging = false;
+            canvas.style.cursor = "grab";
+        });
+
+        function resizeCanvas() {
+            const dpr = window.devicePixelRatio || 1;
+
+            canvas.width = window.innerWidth * dpr;
+            canvas.height = window.innerHeight * dpr;
+
+            canvas.style.width = window.innerWidth + "px";
+            canvas.style.height = window.innerHeight + "px";
+
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+        }
+
+
+        resizeCanvas();
+        window.addEventListener("resize", () => {
+            resizeCanvas();
+            drawFibinocci();
+        });
+
+        document.getElementById("increase").addEventListener("click", () => {
+            let value = Number(inputHandler.value) + 1;
+            if (value > 0) {
+                inputHandler.value = value;
+                FibinocciNumber = value;
+                drawFibinocci();
+            }
+        });
+
+        document.getElementById("decrease").addEventListener("click", () => {
+            let value = Number(inputHandler.value) - 1;
+            if (value > 0) {
+                inputHandler.value = value;
+                FibinocciNumber = value;
+                drawFibinocci();
+            }
+        });
+
+
+        drawFibinocci();
+
+    </script>
+</body>
+
+</html>
